@@ -1,4 +1,4 @@
-##Data
+## Data
 
 `download_and_cut_fits` contains code for downloading all full-sized fits for
 object with certain OID, cutting these fits to 28x28pix image, 
