@@ -2,3 +2,6 @@ download_cuted_fits/data
 download_and_cut_fits/data
 drafts
 papers
+draft.ipynb
+__pycache__
+.ipynb_checkpoints

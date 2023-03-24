@@ -8,13 +8,13 @@ from io import BytesIO
 
 ####################################################
 def download_fits_by_url(url, coords, oid, hmjd, path, shape=(28, 28)):
-    url_cuted_fits = url + f'?center={coords[0]},{coords[1]}&size=27pix&gzip=false'
+    url_cuted_fits = url + f'?center={coords[0]},{coords[1]}&size={shape[0]-1}pix&gzip=false'
     response = requests.get(url_cuted_fits)
     response.raise_for_status()
     stream = BytesIO(response.content)
     stream.seek(0)
     hdus = fits.open(stream)
-            
+
     ext_header = deepcopy(hdus[0].header)
     ext_header.append(('OID', oid, 'Object ID from SNAD'), end=True)
     ext_header.append(('OIDRA', coords[0], 'Object RA'), end=True)
@@ -59,8 +59,8 @@ def download_all_fits_by_oid(oid, return_fails_count=False):
             #with open(str(i) + '.json', 'w') as f:
              #   json.dump(data[i], f)
             continue
-        
-        
+
+
     #print(f'FITS not found {downloadFail_count}')
     if return_fails_count:
         return downloadFail_count
@@ -80,7 +80,7 @@ def get_oids(filepath):
             targets.append(1)
         else:
             targets.append(0)
-    
+
     return oids, targets
 ####################################################
 
@@ -89,8 +89,8 @@ def get_oids(filepath):
 oids, targets = get_oids('akb.ztf.snad.space.json')
 
 #oid = 257206100020483
-for oid in oids:
-    download_and_cut_by_oid(oid)
+for oid in oids[151:]:
+    download_all_fits_by_oid(oid)
 
 
 ####
