@@ -4,7 +4,7 @@ import os
 import json
 from copy import deepcopy
 from io import BytesIO
-
+from multiprocessing import Pool
 
 ####################################################
 def download_fits_by_url(url, coords, oid, hmjd, path, shape=(28, 28)):
@@ -29,6 +29,12 @@ def download_fits_by_url(url, coords, oid, hmjd, path, shape=(28, 28)):
 
 
 def download_all_fits_by_oid(oid, return_fails_count=False):
+    download_path = 'data/' + str(oid) + '/'
+    if os.path.exists(download_path):
+        return
+
+    os.mkdir(download_path)
+
     #get urls for all mjd by oid only
     url = "https://finder.fits.ztf.snad.space/api/v1/urls/by/oid"
     params = {"oid": oid, "dr": 'dr8', "base_url":'IPAC'}
@@ -44,10 +50,6 @@ def download_all_fits_by_oid(oid, return_fails_count=False):
 
     # Extract hmjd for obj
     hmjds = [obs["inputs"]["hmjd"] for obs in data]
-
-    download_path = 'data/' + str(oid) + '/'
-    if not os.path.exists(download_path):
-        os.mkdir(download_path)
 
     # cutout images
     downloadFail_count = 0
@@ -84,17 +86,13 @@ def get_oids(filepath):
     return oids, targets
 ####################################################
 
-
-
 oids, targets = get_oids('akb.ztf.snad.space.json')
 
-#oid = 257206100020483
-for oid in oids[151:]:
-    download_all_fits_by_oid(oid)
+#for oid in oids[151:]:
+#    download_all_fits_by_oid(oid)
 
+pool = Pool(processes=20)
+pool.map(download_all_fits_by_oid, oids)
+pool.close()
+pool.join()
 
-####
-# with open('data/'+str(oid)+'/'+str(hmjds[50])+'.npy', 'rb') as f:
-#     a = np.load(f)
-
-# plt.imshow(a,  cmap='gray')

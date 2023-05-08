@@ -6,4 +6,11 @@ draft.ipynb
 __pycache__
 .ipynb_checkpoints
 data
-
+mnist
+embeddings
+data_visualization.ipynb
+make_gif.ipynb
+rnn.ipynb
+trained_models
+trash
+visualizations
