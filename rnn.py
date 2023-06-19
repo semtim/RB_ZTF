@@ -1,18 +1,20 @@
 import torch
 import torch.nn as nn
 from vae import *
-
+from sklearn import metrics
+import numpy as np
 
 #### only RNN
 class RBclassifier(nn.Module):
-    def __init__(self, hidden_size, rnn_type='LSTM', bidirectional=False, device='cpu'):
+    def __init__(self, hidden_size, latent_dim, rnn_type='LSTM', bidirectional=False, device='cpu', out_size=1):
         super().__init__()
         self.hidden_size = hidden_size
         self.rnn_type = rnn_type
         self.device = device
-        self.latent_dim = 36
+        self.latent_dim = latent_dim
         self.rnn_in_size = self.latent_dim
         self.bidir = bidirectional
+        self.out_size = out_size
         
         if rnn_type == 'LSTM':
             self.rnn_layer = nn.LSTM(input_size=self.rnn_in_size, hidden_size=hidden_size, batch_first=True,
@@ -26,10 +28,17 @@ class RBclassifier(nn.Module):
         else:
             D = 1
         
-        self.clf = nn.Sequential(
-                                 nn.Linear(D*hidden_size, 2),
+        if out_size == 1:
+            self.clf = nn.Sequential(
+                                 nn.Linear(D*hidden_size, 1),
+                                 #nn.ReLU(),
                                  #nn.Linear(64, 2)
                                  nn.Sigmoid(),
+                                )
+        elif out_size == 2:
+            self.clf = nn.Sequential(
+                                 #nn.Mish(),
+                                 nn.Linear(D*hidden_size, 2),
                                 )
 
     def forward(self, x):
@@ -46,7 +55,11 @@ class RBclassifier(nn.Module):
             y = self.clf(h_concat)
         else:
             y = self.clf(h[0])
-        return y
+        
+        if self.out_size == 1:
+            return y.view(-1)
+        elif self.out_size == 2:
+            return y
 
 
 #######################################################
@@ -60,45 +73,112 @@ def train_rnn(
     criterion,
     epoch,
     device,
+    writer,
 ):
 
     result = {'train_loss':[], 'train_acc':[], 'test_loss':[], 'test_acc':[],
              'test_prec':[], 'test_rec':[]}
-    ep_loss, ep_acc = 0, 0
+    ep_loss = 0
     batch_count = 0
+    all_lab, all_out = [], []
     for batch_idx, (data, lab) in enumerate(train_loader): 
+        all_lab.append(lab)
         batch_size = data.size(0)
         optimizer.zero_grad()
         data = data.to(device)
         lab = lab.to(device)
 
         output = model(data) 
-
+        all_out.append(output.to('cpu'))
         loss = criterion(output, lab)
         loss.backward()
         optimizer.step()
         ep_loss += loss.item()
-        
-        _, pred_lab = torch.max(output, 1)
-        ep_acc += metrics.accuracy_score(lab.cpu(), pred_lab.cpu())
         batch_count += 1
 
+
+    all_out, all_lab = torch.concat(all_out), torch.concat(all_lab)
+    train_scores = get_scores(pred_from_out(all_out, model.out_size), all_lab)
+    train_scores['loss'] = ep_loss / batch_count
+    
     model.cpu()
     model.device = 'cpu'
     test_res = validate(model, test_loader, criterion)
     model.device = device
     model.cuda()
     
-    result['train_loss'].append( ep_loss / batch_count )
-    result['train_acc'].append( ep_acc / batch_count )
-    result['test_loss'].append(test_res[-1])
-    result['test_acc'].append(test_res[0])
-    result['test_prec'].append(test_res[2])
-    result['test_rec'].append(test_res[1])
+    result['train_loss'].append( train_scores['loss'] )
+    result['train_acc'].append( train_scores['accuracy'] )
+    
+    writer.add_scalars("Loss", {'train': train_scores['loss'],
+                                'test': test_res['loss']}, epoch)
+    
+    writer.add_scalars("Accuracy", {'train': train_scores['accuracy'],
+                                    'test': test_res['accuracy']}, epoch)
+    
+    writer.add_scalars("ROC-AUC", {'train': train_scores['roc_auc'],
+                                   'test': test_res['roc_auc']}, epoch)
+
+    writer.add_scalars("F1-score", {'train': train_scores['f1'],
+                                   'test': test_res['f1']}, epoch)
     
     return result
 
 
+@torch.inference_mode()
+def pred_from_out(output, out_size):
+    if out_size == 2:
+        return nn.Softmax(dim=1)(output)[:, 1]
+    else:
+        return output
+
+
+@torch.inference_mode()
+def get_pred(
+             model,
+             loader,
+             ):
+    if model.out_size == 2:
+        result, gt = torch.zeros(1,2), torch.zeros(1)
+        for x, label in loader:
+            output = model(x)
+            result = torch.vstack((result, output))
+            gt = torch.hstack((gt, label))
+        return nn.Softmax(dim=1)(result[1:])[:, 1], gt[1:], result[1:]
+    else:
+        result, gt = torch.zeros(1), torch.zeros(1)
+        for x, label in loader:
+            output = model(x)
+            result = torch.hstack((result, output))
+            gt = torch.hstack((gt, label))    
+        return result[1:], gt[1:]
+
+
+
+@torch.inference_mode()
+def get_scores(out, gt):
+    result = {}
+    
+    fpr, tpr, thresholds = metrics.roc_curve(gt, out)             
+    result['tpr'] = tpr
+    result['fpr'] = fpr
+    result['thresholds'] = thresholds
+    result['roc_auc'] = metrics.roc_auc_score(gt, out)
+    
+    f1scores = []
+    for tr in thresholds:
+        current_predict = (out >=tr).long()
+        f1scores.append(metrics.f1_score(gt, current_predict))
+        #result['f1'].append(f1scores)
+    result['f1'] = np.max(f1scores)
+    
+    ind = np.argmax(f1scores)
+    cur_best_thr = result['thresholds'][ind]
+    
+    result['precision'] = metrics.precision_score(gt, (out >= cur_best_thr).long())
+    result['recall'] = metrics.recall_score(gt, (out >= cur_best_thr).long())
+    result['accuracy'] = metrics.accuracy_score(gt, (out >= cur_best_thr).long())
+    return result
 
 @torch.inference_mode()
 def validate(
@@ -106,23 +186,15 @@ def validate(
              loader,
              criterion,
              ):
- 
-    batch_count = 0
-    acc, prec, rec, loss = 0, 0, 0, 0
-    for x, label in loader:
-        output = model(x)
-        pred_value, pred_label = torch.max(output, 1)
-        acc += metrics.accuracy_score(label, pred_label)
-        prec += metrics.precision_score(label, pred_label)
-        rec += metrics.recall_score(label, pred_label)
-        loss += criterion(output, label)
-        batch_count += 1
-    acc /= batch_count
-    rec /= batch_count
-    prec /= batch_count
-    loss = loss.item() / batch_count
 
-    return acc, rec, prec, loss
+    if model.out_size == 1:
+        out, gt = get_pred(model, loader)
+    else:
+        proba, gt, out = get_pred(model, loader)
+        gt = gt.long()
+    result = get_scores(proba, gt)
+    result['loss'] = criterion(out, gt).item()
+    return result
 
 #######################################################
 

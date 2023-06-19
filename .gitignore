@@ -11,13 +11,13 @@ embeddings
 make_gif.ipynb
 rnn.ipynb
 trash
-	arial.ttf
-	embeddings_100ep/
+arial.ttf
+embeddings_100ep/
 gifs/
-	ranger21_tests.ipynb
-	runs/
-	train_rnn_kfold.py
-	train_rnn_kfold_base.py
-	train_rnn_kfold_tversky.py
-	train_rnn_kfold_wd2dir.py
-	umap.ipynb
+ranger21_tests.ipynb
+runs/
+train_rnn_kfold.py
+train_rnn_kfold_base.py
+train_rnn_kfold_tversky.py
+train_rnn_kfold_wd2dir.py
+umap.ipynb

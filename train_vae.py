@@ -18,7 +18,7 @@ frames_dataset = AllFramesDataset(oids)
 train_loader = DataLoader(frames_dataset, batch_size=256, shuffle=True, num_workers=32)
 
 
-latent_dim = 36
+latent_dim = 78
 
 learning_rate = 5e-5
 encoder = VAEEncoder(latent_dim=latent_dim * 2)
@@ -47,7 +47,7 @@ for i in tqdm(range(1, 101)):
         )
     )
 
-torch.save(encoder.state_dict(), 'trained_models/vae/encoder_100ep.zip')
-torch.save(decoder.state_dict(), 'trained_models/vae/decoder_100ep.zip')
+torch.save(encoder.state_dict(), 'trained_models/vae/encoder_ld78.zip')
+torch.save(decoder.state_dict(), 'trained_models/vae/decoder_ld78.zip')
 
-np.save('trained_models/vae/loss_100ep.npy', losses)
+np.save('trained_models/vae/loss_ld78.npy', losses)

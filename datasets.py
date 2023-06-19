@@ -6,7 +6,10 @@ import random
 from random import shuffle
 import json
 from torch.nn.utils.rnn import pad_sequence
-
+from astropy.wcs import WCS, utils
+from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from copy import deepcopy
 
 # img preprocessing
 def img_prep(hdus, fill_value=0.0, shape=(28, 28)):
@@ -71,9 +74,10 @@ def get_frames_seq(path):
 
 # Datasets
 class AllFramesDataset(Dataset):
-    def __init__(self, oids, path='data/'):
+    def __init__(self, oids, path='data/', transform=None):
         self.oids = oids
         self.imgs_paths = []
+        self.transform = transform
         for oid in oids:
             imgs_names = os.listdir(f'{path}{oid}')
             self.imgs_paths += [path + f'{oid}/' + name for name in imgs_names]
@@ -82,6 +86,10 @@ class AllFramesDataset(Dataset):
         with fits.open(self.imgs_paths[idx]) as f:
                 item = img_prep(f)
                 res = torch.tensor(item).reshape(1, 28, 28).float()
+
+        if self.transform:
+            res = self.transform(res)
+            
         return res
     
     def __len__(self):
@@ -90,15 +98,22 @@ class AllFramesDataset(Dataset):
 
 
 class EmbsSequenceData(Dataset):
-    def __init__(self, oids, labels, path='embeddings/'):
+    def __init__(self, oids, labels, path='embeddings_100ep/', label_type='long', return_oid=False):
         self.oids = oids
-        self.labels = torch.tensor(labels).long()
+        if label_type == 'long':
+            self.labels = torch.tensor(labels).long()
+        elif label_type == 'float':
+            self.labels = torch.tensor(labels).float()
         self.obj_path = [path + f'{oid}.npy' for oid in oids]
+        self.return_oid = return_oid
         
     def __getitem__(self,idx):
         embs = np.load(self.obj_path[idx])
         label = self.labels[idx]
-        return torch.tensor(embs), label
+        if self.return_oid:
+            return torch.tensor(embs), label, self.oids[idx]
+        else:
+            return torch.tensor(embs), label
     
     def __len__(self):
         return len(self.obj_path)
@@ -106,15 +121,19 @@ class EmbsSequenceData(Dataset):
     
 
 class FramesSequenceData(Dataset):
-    def __init__(self, oids, labels, path='data/'):
+    def __init__(self, oids, labels, path='data/', return_oid=False):
         self.oids = oids
         self.labels = torch.tensor(labels).long()
         self.obj_path = [path + f'{oid}/' for oid in oids]
+        self.return_oid = return_oid
         
     def __getitem__(self,idx):
         item = get_frames_seq(self.obj_path[idx])
         label = self.labels[idx]
-        return item, label
+        if self.return_oid:
+            return item, label, self.oids[idx]
+        else:
+            return item, label
     
     def __len__(self):
         return len(self.obj_path)
@@ -124,17 +143,22 @@ class FramesSequenceData(Dataset):
 class BySequenceLengthSampler(Sampler):
 
     def __init__(self, data_source,  
-                bucket_boundaries, batch_size=64, drop_last=True):
+                bucket_boundaries, batch_size=64, drop_last=True, shuffle=True, return_oid=False):
         self.data_source = data_source
         ind_n_len = []
-        for i, (p, _) in enumerate(data_source):
-            ind_n_len.append( (i, p.shape[0]) )
+        if return_oid:
+            for i, (p, _, _) in enumerate(data_source):
+                ind_n_len.append( (i, p.shape[0]) )
+        else:
+            for i, (p, _) in enumerate(data_source):
+                ind_n_len.append( (i, p.shape[0]) )
 
         self.ind_n_len = ind_n_len
         self.bucket_boundaries = bucket_boundaries
         self.batch_size = batch_size
         self.drop_last = drop_last
-
+        self.shuffle = shuffle
+        
         if self.drop_last:
             print("WARNING: drop_last=True, dropping last non batch-size batch in every bucket ... ")
 
@@ -150,7 +174,7 @@ class BySequenceLengthSampler(Sampler):
         data_buckets = dict()
         # where p is the id number and seq_len is the length of this id number. 
         for p, seq_len in self.ind_n_len:
-            pid = self.element_to_bucket_id(p,seq_len)
+            pid = self.element_to_bucket_id(p, seq_len)
             if pid in data_buckets.keys():
                 data_buckets[pid].append(p)
             else:
@@ -163,16 +187,20 @@ class BySequenceLengthSampler(Sampler):
         iter_list = []
         for k in data_buckets.keys():
 
-            t = self.shuffle_tensor(data_buckets[k])
-            batch = torch.split(t, self.batch_size, dim=0)
+            if self.shuffle:
+                t = self.shuffle_tensor(data_buckets[k])
+                batch = torch.split(t, self.batch_size, dim=0)
+            else:
+                batch = torch.split(data_buckets[k], self.batch_size, dim=0)
 
             if self.drop_last and len(batch[-1]) != self.batch_size:
                 batch = batch[:-1]
 
             iter_list += batch
 
-        shuffle(iter_list) # shuffle all the batches so they arent ordered by bucket
-        # size
+        if self.shuffle:
+            shuffle(iter_list) # shuffle all the batches so they arent ordered by bucket size
+            
         for i in iter_list: 
             yield i.numpy().tolist() # as it was stored in an array
     
@@ -193,11 +221,17 @@ def collate(examples):
     for frame_seq, label in examples:
         labels += [label]
         seq_list += [frame_seq]
-
     return pad_sequence(seq_list, batch_first=True), torch.tensor(labels)
 
-
-
+def collate_with_oid(examples):
+    labels = []
+    seq_list = []
+    oids = []
+    for frame_seq, label, oid in examples:
+        labels += [label]
+        seq_list += [frame_seq]
+        oids += [oid]
+    return pad_sequence(seq_list, batch_first=True), torch.tensor(labels), oids
 ######################################
 
 def check_if_r(oid):

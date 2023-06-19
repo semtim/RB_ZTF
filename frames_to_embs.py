@@ -6,8 +6,8 @@ import numpy as np
 
 oids, labels = get_only_r_oids('akb.ztf.snad.space.json')
 
-encoder = VAEEncoder(latent_dim=36 * 2)
-encoder.load_state_dict(torch.load('trained_models/vae/encoder_bs256.zip'))
+encoder = VAEEncoder(latent_dim=78 * 2)
+encoder.load_state_dict(torch.load('trained_models/vae/encoder_ld78.zip'))
         
 encoder.eval()
 for seq in encoder.encoder.children():
@@ -23,4 +23,4 @@ for i, oid in enumerate(oids):
     path = f'data/{oid}'
     frames = get_frames_seq(path)
     embs = encoder(frames)
-    np.save(f'embeddings/{oid}.npy', embs.numpy())
+    np.save(f'embeddings_ld78/{oid}.npy', embs.numpy())

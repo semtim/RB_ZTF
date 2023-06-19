@@ -33,10 +33,6 @@ def vae_loss_handler(data, recons, latent, kld_weight=8e-5, *args, **kwargs):
     return kld_weight * kl_loss + LogCoshLoss()(recons, data) #F.mse_loss(recons, data)
 #################################
 
-
-
-
-
 # For Real-Bogus classifier
 class TverskyLoss(nn.Module):
     def __init__(self, alfa=0.3, smooth=1, focal_tl=False, gamma=0.75):
@@ -67,5 +63,5 @@ class TverskyLoss(nn.Module):
 
 
 def rnn_loss_handler(nn_out, gt):
-    #prob = nn.Sigmoid()(nn_out)
-    return 0.7 * nn.CrossEntropyLoss()(nn_out, gt) + 0.3 * TverskyLoss()(nn_out, gt)
+    prob = nn.Sigmoid()(nn_out)
+    return nn.CrossEntropyLoss()(nn_out, gt) + 0.01 * TverskyLoss()(prob, gt)
