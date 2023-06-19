@@ -8,9 +8,16 @@ __pycache__
 data
 mnist
 embeddings
-data_visualization.ipynb
 make_gif.ipynb
 rnn.ipynb
-trained_models
 trash
-visualizations
+	arial.ttf
+	embeddings_100ep/
+gifs/
+	ranger21_tests.ipynb
+	runs/
+	train_rnn_kfold.py
+	train_rnn_kfold_base.py
+	train_rnn_kfold_tversky.py
+	train_rnn_kfold_wd2dir.py
+	umap.ipynb
