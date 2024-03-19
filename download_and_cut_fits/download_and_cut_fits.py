@@ -63,7 +63,7 @@ def download_and_cut_by_oid(oid, return_fails_count=False):
     # Extract hmjd for obj
     hmjds = [obs["inputs"]["hmjd"] for obs in data]
 
-    download_path = 'data/' + str(oid) + '/'
+    download_path = '../data/' + str(oid) + '/'
     if not os.path.exists(download_path):
         os.mkdir(download_path)
 
@@ -105,15 +105,10 @@ def get_oids(filepath):
 
 
 
-oids, targets = get_oids('akb.ztf.snad.space.json')
+oids, targets = get_oids('../akb.ztf.snad.space.json')
 
-#oid = 257206100020483
 for oid in oids:
     download_and_cut_by_oid(oid)
 
 
-####
-# with open('data/'+str(oid)+'/'+str(hmjds[50])+'.npy', 'rb') as f:
-#     a = np.load(f)
 
-# plt.imshow(a,  cmap='gray')

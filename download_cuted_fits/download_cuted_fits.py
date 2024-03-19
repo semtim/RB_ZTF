@@ -29,7 +29,7 @@ def download_fits_by_url(url, coords, oid, hmjd, path, shape=(28, 28)):
 
 
 def download_all_fits_by_oid(oid, return_fails_count=False):
-    download_path = 'data/' + str(oid) + '/'
+    download_path = '../data/' + str(oid) + '/'
     if os.path.exists(download_path):
         return
 
@@ -86,10 +86,7 @@ def get_oids(filepath):
     return oids, targets
 ####################################################
 
-oids, targets = get_oids('akb.ztf.snad.space.json')
-
-#for oid in oids[151:]:
-#    download_all_fits_by_oid(oid)
+oids, targets = get_oids('../akb.ztf.snad.space.json')
 
 pool = Pool(processes=20)
 pool.map(download_all_fits_by_oid, oids)
