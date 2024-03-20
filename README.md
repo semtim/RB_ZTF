@@ -7,7 +7,9 @@ This repository represents the research described in the article “Neural netwo
 
 The goal of this work is the development of an algorithm to predict whether a light curve from the Zwicky Transient Facility data releases has a bogus nature or not, based on the sequence of frames. A labeled dataset provided by experts from [SNAD](https://snad.space/) team was utilized, comprising 2230 frames series. Due to  substantial size of the frame sequences, the application of a variational autoencoder was deemed necessary for mapping the images into lower-dimensional vectors. For the task of binary classification based on sequences of compressed frame vectors, a recurrent neural network was employed. Several neural network models were considered, and the quality metrics were assessed using k-fold cross-validation. The final performance metrics, including $\rm{ROC-AUC}=0.86 \pm 0.01$ and $\rm{Accuracy}=0.80 \pm 0.02$, suggest that the model has practical utility.
 
-The ![figure]() shows a diagram of how the real-bogus classification works.
+The figure below shows a diagram of how the real-bogus classificator works:
+
+![](https://github.com/semtim/RB_ZTF/blob/master/readme_images/scheme_eng.png)
 
 The work consisted of several steps:
 - Download data
