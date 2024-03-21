@@ -29,6 +29,13 @@ The labeled objects list is contained in the file `akb.ztf.snad.space.json`. Scr
 
 ## VAE
 
+Details about the architecture of the variational autoencoder are written in Section 3.1 of the article. `notebooks/train_vae.ipynb` was used to train several models, which are saved in `trained_models/vae` directory as well as loss values during training. Script `scripts/vae.py` implements encoder and decoder classes.
+
 ## RNN
 
+Details about the architectures of the considered recurrent neural networks are written in Section 3.2 of the article. `notebooks/train_rnn_kfold.ipynb` was used to train several models, which are saved in `trained_models/rnn` directory as well as additional information during training. During the RNN training, k-fold cross-validation (k=5) was employed. The dataset was randomly divided into 5 folds, and then 5 models were trained, each having a specific fold as the test set and the union of the remaining 4 folds as the training set. Thus, the data split into training/test sets was unique for each model. The final quality metrics for each considered model were calculated as the average values across 5 models from the k-fold cross-validation split. Script `scripts/rnn.py` implements recurrent neural network class.
+
 ## Validation
+
+
+
